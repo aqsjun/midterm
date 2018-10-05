@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Midterm Exam</title>
+
+        <link rel="icon" href="favicon.png" >
+
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+        integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+        crossorigin=""/>
+
+        <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+        integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+        crossorigin=""></script>
+
+        <script type="text/javascript" src="statedata.js"></script>
+        <script type="text/javascript" src="countydata.js"></script>
+
+        <style type="text/css">
+          html, body { margin: 0; padding: 0; height: 100%; }
+          #map { min-height: 100%; }
+
+          /* Optional: adjust the values below to change the appearance of the legend */
+          .legend {
+            padding: 6px 8px;
+            line-height: 18px;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+       /* Optional: adjust the values below to change the appearance of the legend color boxes */
+       .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 1;
+        }
+
+        </style>
+
+    </head>
+
+    <body>
+        <div id="map" style="height: 500px"></div>
+
+        <script type="text/javascript">
+
+          var map = L.map('map', {
+              center: [38.16, -96.96],
+              zoom: 4
+          });
+
+          L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+               attribution: '@ <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            }).addTo(map);
+
+            function getColor(value) {
+                return value > 25.5 ? '#0c2c84':
+                       value > 21.6  ? '#225ea8':
+                       value > 18.6  ? '#1d91c0':
+                       value > 16.1  ? '#41b6c4':
+                       value > 13.8  ? '#7fcdbb':
+                       value > 11.1  ? '#c7e9b4':
+                                     '#ffffcc';
+            }
+
+            function style(feature){
+              return {
+                fillColor: getColor(feature.properties.per_aging),   // pop_den is the field name for the population density data
+                weight: 0.75,
+                opacity: 1,
+                color: 'gray',
+                fillOpacity: 1
+              };
+            }
+
+            function highlightFeature(e) {
+       // Get access to the feature that was hovered through e.target
+       var feature = e.target;
+
+       // Set a thick grey border on the feature as mouseover effect
+       // Adjust the values below to change the highlighting styles of features on mouseover
+       // Check out https://leafletjs.com/reference-1.3.4.html#path for more options for changing style
+       feature.setStyle({
+           weight: 6,
+           color: '#FFFFFF',
+           fillOpacity: 0.7
+       });
+
+       // Bring the highlighted feature to front so that the border doesn’t clash with nearby states
+       // But not for IE, Opera or Edge, since they have problems doing bringToFront on mouseover
+       if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+           feature.bringToFront();
+       }
+   }
+
+       var states; // define a variable to make the geojson layer accessible for the funtion to use
+       var counties;
+
+   function resetHighlight(e) {
+       states.resetStyle(e.target);
+   }
+
+   function onEachFeature(feature, layer) {
+   layer.on({
+       mouseover: highlightFeature, // Do what defined by the highlightFeature function on mouseover
+       mouseout: resetHighlight,    // Do what defined by the resetHighlight function on mouseout
+   });
+}
+     states = L.geoJson(statedata, {
+         style:style,
+         onEachFeature: onEachFeature
+     }).bindPopup(function (layer){
+         return layer.feature.properties.NAME10
+                + '<p style="color:black">' + layer.feature.properties.per_aging.toString() + ' percent</p>';
+     }).addTo(map);
+
+     counties = L.geoJson(countydata, {
+         style:style,
+         onEachFeature: onEachFeature
+     }).bindPopup(function (layer){
+         return layer.feature.properties.NAMELSAD10
+                + '<p style="color:black">' + layer.feature.properties.per_aging.toString() + ' percent</p>';
+     }).addTo(map);
+
+            var legend = L.control({position: 'bottomright'}); // Try the other three corners if you like.
+
+              legend.onAdd = function (map) {
+
+                var div = L.DomUtil.create('div', 'legend'),
+                  grades = [0, 3.7, 11.1, 13.8, 16.1, 18.6, 21.6, 25.5]; // The break values to define the intervals of population, note we begin from 0 here
+
+               div.innerHTML = '<b> Percent Aging Population <br> (65 and older)<br></b>'; // The legend title (HTML-based), in this case it's Population Density 2011
+
+                  // Loop through our the classes and generate a label with a colored square for each interval.
+                  // If you are creating a similar choropleth map, you do not need to change lines below.
+                  for (var i = 0; i < grades.length; i++) {
+                      div.innerHTML +=
+                      '<i style="background:' + getColor(grades[i] + 1) + '"></i>' +
+                      grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+                  }
+
+                  return div;
+              };
+
+            legend.addTo(map);
+
+            var overlaymaps = {
+                "US States": states,
+                "US Counties": counties
+            };
+
+            L.control.layers(overlaymaps).addTo(map);
+
+        </script>
+   </body>
+</html>
